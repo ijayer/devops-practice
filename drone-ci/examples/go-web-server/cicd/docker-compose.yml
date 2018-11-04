@@ -1,0 +1,33 @@
+version: '3'
+services:
+  caddy: # caddy proxy server
+    container_name: caddy
+    image: abiosoft/caddy:latest
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /etc/ssl/server-certs:/root/.caddy
+      - ./Caddyfile:/etc/Caddyfile
+      - ./www:/srv
+    depends_on:
+      - api
+
+  api:  # api server
+    container_name: api(@tag)
+    image: repo.company.com:5000/go-app:(@tag)
+    restart: always
+    command: './app --port=80 --db_addr=mgo:27017'
+    depends_on:
+      - mgo
+
+  mgo:  # mgo server
+    container_name: mgo
+    image: mongo:latest
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: xxx
+      MONGO_INITDB_ROOT_PASSWORD: xxx
+    volumes:
+      - ./mgo-data/db:/data/db

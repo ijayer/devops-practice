@@ -1,0 +1,95 @@
+workspace:
+  base: /go
+  path: src/repo/goweb-app
+
+clone:    # Clone code from bitbucket
+  git:
+    image: plugins/git
+    depth: 50
+    tags: true
+
+pipeline:
+
+  ping:   # Mgo-server for testing restful api
+    image: mongo:latest
+    commands:
+      - sleep 3
+      - mongo --host mgo --eval "{ping:1}"
+
+  test:   # Golang unit testing
+    image: golang:latest
+    group: build
+    environment:
+      - BRC=${DRONE_COMMIT_BRANCH}
+      - SHA=${DRONE_COMMIT_SHA:0:8}
+      - EVN=${DRONE_BUILD_EVENT}
+      - MSG=${DRONE_COMMIT_MESSAGE}
+      - TAG=${DRONE_TAG}
+      - MGO=mgo:27017
+    commands:
+      - cd cicd
+      - /bin/sh test_api.sh $MGO $BRC $SHA $EVN $MSG $TAG
+
+  build:  # Build go app and package source files
+    image: golang:latest
+    commands:
+      - cd cicd
+      - /bin/sh build_app.sh
+
+  image:  # Build image and publish to private registry
+    image: plugins/docker
+    repo: <repo.company.com:5000>/go-app
+    registry: <repo.company.com:5000>
+    secrets: [ docker_username, docker_password ]
+    context: ./cicd/
+    dockerfile: ./cicd/Dockerfile
+    default_tags: true
+    when:
+      event: tag
+
+  scp:    # Upload resource and config files to remote server
+    image: appleboy/drone-scp
+    group: build
+    host:
+      - your.company.domain
+    username: root
+    port: 22
+    secrets: [ ssh_password ]
+    target: /home/workspace/service/api-server
+    source: ./cicd/release.tar.gz
+    when:
+      event: tag
+
+  deploy: # Deploy api-server, caddy-server, mgo-server
+    image: appleboy/drone-ssh
+    host:
+      - your.company.domain
+    username: root
+    port: 22
+    secrets: [ ssh_password ]
+    command_timeout: 60
+    script:
+      - cd /home/workspace/service/api-server/cicd
+      - tar -zxvf release.tar.gz
+      - ls -l
+      - /bin/sh deploy_services.sh ${DRONE_TAG} ${DRONE_COMMIT_SHA:0:8}
+    when:
+      event: tag
+
+  hipchat: # Notify
+    image: jmccann/drone-hipchat
+    url: https://hipchat.<your.company.domain>.com
+    room: 19
+    auth_token: tWVtsTFzsbkwSJOsdf45yyb11TR8dLyEYAlicHviB
+    from: Drone
+    when:
+      status: [ success, failure ]
+    template: >
+      <strong>{{ uppercasefirst build.status }}</strong> <a href=\"{{ system.link_url }}/{{ repo.owner }}/{{ repo.name }}/{{ build.number }}\">{{ repo.owner }}/{{ repo.name }}#{{ truncate build.commit 8 }}</a> ({{ build.branch }}) by {{ build.author }} in {{ duration build.started_at build.finished_at }} </br> - {{ build.message }}
+
+services:  # Dependent service
+  mgo:
+    image: mongo:latest
+
+branches:  # Enable Drone CICD on: master & release/* branches
+  include: [ master, release/* ]

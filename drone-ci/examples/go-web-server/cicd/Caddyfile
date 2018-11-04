@@ -1,0 +1,21 @@
+https://your.company.domain {
+    gzip
+    root /srv
+    tls /root/.caddy/cert.crt /root/.caddy/cert.key
+    timeouts none
+
+    proxy /v0 api(@tag):80 {
+        transparent
+        websocket
+        except static
+    }
+
+    cors /v0 {
+        origin            *
+        methods           POST,GET,PATCH,DELETE,OPTIONS
+        allow_credentials false
+        max_age           3600
+        allowed_headers   content-type,Authorization
+        exposed_headers   X-Something-Special,SomethingElse,Authorization
+    }
+}

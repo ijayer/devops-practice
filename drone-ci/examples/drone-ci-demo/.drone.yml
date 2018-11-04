@@ -1,0 +1,11 @@
+workspace:
+  base: /go
+  path: src/repo/drone-ci-demo
+
+pipeline:
+  backend:
+    image: golang
+    commands:
+      - go mod tidy
+      - go test
+      - go build .
