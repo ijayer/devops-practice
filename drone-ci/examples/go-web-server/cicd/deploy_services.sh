@@ -25,7 +25,7 @@ ContainerName=api${Tag}
 
 # Reconfigure docker-compose.yml & Caddyfile
 sed -i "s/api(@tag)/${ContainerName}/g" docker-compose.yml  # 启动对应版本(Tag)的 API 容器
-sed -i "s/(@tag)/${Tag}/g" dockere-compose.yml              # 拉去对应版本(Tag)的 API 镜像
+sed -i "s/(@tag)/${Tag}/g" docker-compose.yml              # 拉去对应版本(Tag)的 API 镜像
 sed -i "s/api(@tag)/${ContainerName}/g" Caddyfile           # Caddy 代理到对应版本的 API 容器服务
 
 # Pull image and run docker container
